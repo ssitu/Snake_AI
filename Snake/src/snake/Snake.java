@@ -32,8 +32,13 @@ public class Snake extends Stage {
     };
     private int completedgames = 0;
     private int highestlength = 0;
+    public final int WIDTH;
+    public final int HEIGHT;
+    private boolean whileloop = true;
 
     public Snake(int rows, int cols, int unitsize) {
+        WIDTH = cols;
+        HEIGHT = rows;
         int height = unitsize * rows;
         int width = unitsize * cols;
         grid = new Grid(rows, cols, height, width);
@@ -91,9 +96,19 @@ public class Snake extends Stage {
     }
 
     public void play() {
-        this.show();
-        loop.setCycleCount(-1);
-        loop.play();
+        if (whileloop) {
+            while (true) {
+                update();
+            }
+        } else {
+            this.show();
+            loop.setCycleCount(-1);
+            loop.play();
+        }
+    }
+
+    public void setHighScoreReset() {
+        highestlength = 0;
     }
 
     public void setGameSpeed(double speed) {
@@ -120,11 +135,11 @@ public class Snake extends Stage {
         externalupdate = update;
     }
 
-    public void inputKey(KeyCode key) {
+    public void setInput(KeyCode key) {
         keys.put(key, true);
     }
 
-    public void inputKey(int action) {
+    public void setInput(int action) {
         if (action == 0) {
             keys.put(up, true);
         } else if (action == 1) {
@@ -162,6 +177,14 @@ public class Snake extends Stage {
 
     public int getHighestLength() {
         return highestlength;
+    }
+
+    public int getLength() {
+        return grid.snakelength;
+    }
+
+    public int[] getHeadLoc() {
+        return grid.getHeadLoc();
     }
 
     public class Grid extends Group {
@@ -331,6 +354,10 @@ public class Snake extends Stage {
 
         public int getSnakeLength() {
             return snakelength;
+        }
+
+        public int[] getHeadLoc() {
+            return new int[]{snake.get(0)[0], snake.get(0)[1]};
         }
     }
 

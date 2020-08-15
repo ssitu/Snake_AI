@@ -1,6 +1,6 @@
 package snake;
 
-import ai.PolicyGradient;
+import ai.*;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
 import javafx.scene.Group;
@@ -11,7 +11,7 @@ import javafx.stage.Stage;
 public class Main extends Application {
     
     public final Group ROOT = new Group(gameSpeedSlider());
-    private Snake game = new Snake(6, 6, 100);
+    private Snake game = new Snake(6, 6, 32);
     
     public static void main(String[] args) {
         launch(args);
@@ -19,7 +19,9 @@ public class Main extends Application {
     
     @Override
     public void start(Stage stage) throws Exception {
+//        Naive naive = new Naive(game);
         PolicyGradient pg = new PolicyGradient(game);
+//        Genetic genetic = new Genetic(game);
         Scene scene = new Scene(ROOT, 400, 50);
         stage.setScene(scene);
         stage.setResizable(false);
