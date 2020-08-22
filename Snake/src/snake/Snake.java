@@ -34,9 +34,10 @@ public class Snake extends Stage {
     private int highestlength = 0;
     public final int WIDTH;
     public final int HEIGHT;
-    private boolean whileloop = true;
+    private final boolean whileloop;
 
-    public Snake(int rows, int cols, int unitsize) {
+    public Snake(int rows, int cols, int unitsize, boolean whileloop) {
+        this.whileloop = whileloop;
         WIDTH = cols;
         HEIGHT = rows;
         int height = unitsize * rows;

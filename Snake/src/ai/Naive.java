@@ -39,7 +39,7 @@ public class Naive {
     }
 
     public void update() {
-        if (game.isSnakeAlive()) {
+        if (game.isSnakeAlive() || !game.isGameWon()) {
             if (firstFrame) {
                 game.setInput(0);
                 firstFrame = false;

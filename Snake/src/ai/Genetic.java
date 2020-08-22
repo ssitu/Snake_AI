@@ -6,10 +6,10 @@ import snake.Snake;
 public class Genetic {
 
     private NN base = new NN("genetic", 0, .00001f, null, null,
-            new Layer.Conv(1, 6, 6, 20, 3, 3, 1, 0, 0, Activation.TANH),//1-6-6 conv(s=1) 20-1-3-3 = 20-4-4
+            new Layer.Conv(1, 6, 6, 20, 3, 3, 1, 0, 0, Activations.TANH),//1-6-6 conv(s=1) 20-1-3-3 = 20-4-4
             new Layer.Flatten(20, 4, 4),
-            new Layer.Dense(320, 100, Activation.TANH, Initializer.XAVIER),
-            new Layer.Dense(100, 4, Activation.SIGMOID, Initializer.XAVIER)
+            new Layer.Dense(320, 100, Activations.TANH, Initializers.XAVIER),
+            new Layer.Dense(100, 4, Activations.SIGMOID, Initializers.XAVIER)
     );
     private Snake game;
     private int gamesbeforesave = 1000;
