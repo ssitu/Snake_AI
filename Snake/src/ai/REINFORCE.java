@@ -7,12 +7,7 @@ import snake.Snake;
 
 public class REINFORCE {
 
-    private NN nn = new NN("pg", 0, .00001f, LossFunctions.CROSSENTROPY(1), Optimizers.ADAM,
-            new Layer.Conv(1, 6, 6, 50, 3, 3, 1, 0, 0, Activations.TANH),
-            new Layer.Flatten(),
-            new Layer.Dense(200, Activations.TANH, Initializers.XAVIER),
-            new Layer.Dense(4, Activations.SOFTMAX, Initializers.XAVIER)
-    );
+    private NN nn;
     private final Snake GAME;
     private final ArrayList<float[][][]> STATES = new ArrayList<>();
     private final ArrayList<Integer> ACTIONS = new ArrayList<>();
@@ -31,11 +26,21 @@ public class REINFORCE {
     private int highestlength = 0;
 
     public REINFORCE(Snake game) {
-        nn.loadInsideJar();
 //        NNlib.showInfo(infoLayers, nn);
         this.GAME = game;
         game.setUpdate(() -> update());
         AREA = game.WIDTH * game.HEIGHT;
+        nn = createPolicy(game.WIDTH, game.HEIGHT);
+        nn.loadInsideJar();
+    }
+
+    private NN createPolicy(int gameWidth, int gameHeight) {
+        return new NN("pg", 0, .00001f, LossFunctions.CROSSENTROPY(1), Optimizers.ADAM,
+                new Layer.Conv(1, gameWidth, gameHeight, 50, 3, 3, 1, 0, 0, Activations.TANH),
+                new Layer.Flatten(),
+                new Layer.Dense(200, Activations.TANH, Initializers.XAVIER),
+                new Layer.Dense(4, Activations.SOFTMAX, Initializers.XAVIER)
+        );
     }
 
     private void update() {
@@ -51,7 +56,7 @@ public class REINFORCE {
         } else {
             accumulatedLength += GAME.getLength();
             avgreward += totalreward;
-            if (GAME.getGamesCount() != 0 && GAME.getGamesCount() % GAMESBEFORESAVE == 0) {
+            if (GAME.getGamesPlayed() != 0 && GAME.getGamesPlayed() % GAMESBEFORESAVE == 0) {
                 highestlength = Math.max(highestlength, GAME.getHighestLength());
                 System.out.println("Highest Length: " + highestlength);
                 System.out.println("Batch Highest Length: " + GAME.getHighestLength());
@@ -99,7 +104,7 @@ public class REINFORCE {
                 } else if (PUNISHMENTADJUSTMENT == 3) {
                     return -punishment;
                 } else {
-                    return -2;
+                    return 0;
                 }
             }
         }
@@ -121,7 +126,7 @@ public class REINFORCE {
 //                break;
 //            }
         }
-        if (GAME.getGamesCount() % GAMESBEFORESAVE == 0) {
+        if (GAME.getGamesPlayed() % GAMESBEFORESAVE == 0) {
             nn.saveInsideJar();
         }
     }

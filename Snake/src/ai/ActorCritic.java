@@ -7,30 +7,15 @@ import snake.Snake;
 
 public class ActorCritic {
 
-    private static NN pn = new NN("ac_actor", 0, .000001f, LossFunctions.CROSSENTROPY(1), Optimizers.ADAM,
-            new Layer.Conv(1, 6, 6, 10, 3, 3, 1, 0, 0, Activations.TANH),
-            new Layer.Flatten(),
-            new Layer.Dense(200, Activations.TANH, Initializers.XAVIER),
-            new Layer.Dense(4, Activations.SOFTMAX, Initializers.XAVIER)
-    );
-    private static NN vn = new NN("ac_critic", 0, .0001f, LossFunctions.QUADRATIC(.5), Optimizers.ADAM,
-            new Layer.Flatten(1, 6, 6),
-            new Layer.Dense(100, Activations.TANH, Initializers.XAVIER),
-            new Layer.Dense(100, Activations.TANH, Initializers.XAVIER),
-            new Layer.Dense(1, Activations.LINEAR, Initializers.VANILLA)
-    );
-
-    static {
-        pn.loadInsideJar();
-        vn.loadInsideJar();
-    }
+    private static NN pn;
+    private static NN vn;
     private final Snake GAME;
     private final ArrayList<float[][][]> STATES = new ArrayList<>();
     private final ArrayList<Integer> ACTIONS = new ArrayList<>();
     private final ArrayList<Float> REWARDS = new ArrayList<>();
     private final float DISCOUNT = .99f;
     private float totalreward = 0;
-    private final int GAMESBEFORESAVE = 1000;
+    private final int GAMESBEFORESAVE = 500;
     private float avg = 0;
     private float accumulatedLength = 0;
     private float avgreward = 0;
@@ -48,6 +33,28 @@ public class ActorCritic {
         this.GAME = game;
         game.setUpdate(() -> update());
         AREA = game.WIDTH * game.HEIGHT;
+        pn = createActor(game.WIDTH, game.HEIGHT);
+        pn.loadInsideJar();
+        vn = createCritic(game.WIDTH, game.HEIGHT);
+        vn.loadInsideJar();
+    }
+
+    private NN createActor(int gameWidth, int gameHeight) {
+        return new NN("ac_actor", 0, .00005f, LossFunctions.CROSSENTROPY(1), Optimizers.ADAM,
+                new Layer.Conv(1, gameWidth, gameHeight, 10, 3, 3, 1, 1, 1, Activations.TANH),
+                new Layer.Flatten(),
+                new Layer.Dense(200, Activations.TANH, Initializers.XAVIER),
+                new Layer.Dense(4, Activations.SOFTMAX, Initializers.XAVIER)
+        );
+    }
+
+    private NN createCritic(int gameWidth, int gameHeight) {
+        return new NN("ac_critic", 0, .00005f, LossFunctions.QUADRATIC(.5), Optimizers.ADAM,
+                new Layer.Flatten(1, gameWidth, gameHeight),
+                new Layer.Dense(100, Activations.TANH, Initializers.XAVIER),
+                new Layer.Dense(100, Activations.TANH, Initializers.XAVIER),
+                new Layer.Dense(1, Activations.LINEAR, Initializers.VANILLA)
+        );
     }
 
     private void update() {
@@ -67,7 +74,7 @@ public class ActorCritic {
             avgreward += totalreward;
             highestreward = Math.max(highestreward, totalreward);
             ewma = EWMACOEFFICIENT * GAME.getLength() + (1 - EWMACOEFFICIENT) * ewma;
-            if (GAME.getGamesCount() != 0 && GAME.getGamesCount() % GAMESBEFORESAVE == 0) {
+            if (GAME.getGamesPlayed() != 0 && GAME.getGamesPlayed() % GAMESBEFORESAVE == 0) {
                 highestlength = Math.max(highestlength, GAME.getHighestLength());
                 System.out.println("Highest Length: " + highestlength);
                 System.out.println("Highest Reward: " + highestreward);
@@ -94,53 +101,72 @@ public class ActorCritic {
     }
 
     private float getReward() {
-        if (GAME.isSnakeAlive()) {
+        if (GAME.isSnakeAlive()) {//alive
             if (GAME.isAppleEaten()) {
                 return 1;
             } else {
                 return -1 / AREA;
             }
         } else {
-            if (GAME.isGameWon()) {
+            if (GAME.isGameWon()) {//win
                 System.out.println("Game Won!");
                 return 10;
-            } else {
+            } else {//lose
                 return -1;
             }
         }
     }
 
     private void train() {
-        int timesteps = STATES.size() - 1;
-        float reward = totalreward;
-        float v = 0;
-        for (int t = timesteps; t >= 0; t--) {
+        int T = STATES.size() - 1;
+        for (int t = 0; t < T; t++) {
             float[][] labels = new float[1][4];
-            float[][][] state = STATES.get(t);
-//            System.out.println(REWARDS.get(t + 1) + " + " + DISCOUNT + " * " + v + " = " + (REWARDS.get(t + 1) + DISCOUNT * v));
-//            System.out.println("before " + ((float[][]) vn.feedforward(state))[0][0]);
-            vn.backpropagation(state, new float[][]{{REWARDS.get(t + 1) + DISCOUNT * v}});
-//            System.out.println("after " + ((float[][]) vn.feedforward(state))[0][0]);
-            v = ((float[][]) vn.feedforward(state))[0][0];
-            highestvalue = Math.max(highestvalue, v);
-            float advantage = reward - v;
-            highestadvantage = Math.max(highestadvantage, advantage);
+            float[][][] s_ = STATES.get(t + 1);
+            float[][][] s = STATES.get(t);
+            float v_ = ((float[][]) vn.feedforward(s_))[0][0];
+            float v = ((float[][]) vn.feedforward(s))[0][0];
+            float r_ = REWARDS.get(t + 1);
+            float advantage = r_ + DISCOUNT * v_ - v;
             try {
                 labels[0][ACTIONS.get(t)] = advantage;
-                pn.backpropagation(state, labels);
+                pn.backpropagation(s, labels);
             } catch (Exception e) {
-                print((float[][]) pn.feedforward(state));
+                print((float[][]) pn.feedforward(s));
             }
-            reward *= DISCOUNT;
-//            if (Math.abs(reward) < 0.0001) {
-//                break;
-//            }
+            vn.backpropagation(s, new float[][]{{r_ + DISCOUNT * v_}});
+            //saving statistics            
+            highestvalue = Math.max(highestvalue, v);
+            highestadvantage = Math.max(highestadvantage, advantage);
         }
-        if (GAME.getGamesCount() % GAMESBEFORESAVE == 0) {
+        if (GAME.getGamesPlayed() % GAMESBEFORESAVE == 0) {
             pn.saveInsideJar();
             vn.saveInsideJar();
         }
     }
+//    private void train() {
+//        int timesteps = STATES.size() - 1;
+//        float reward = totalreward;
+//        for (int t = timesteps; t >= 0; t--) {
+//            float[][] labels = new float[1][4];
+//            float[][][] state = STATES.get(t);
+//            float v = ((float[][]) vn.feedforward(state))[0][0];
+//            highestvalue = Math.max(highestvalue, v);
+//            float advantage = reward - v;
+//            highestadvantage = Math.max(highestadvantage, advantage);
+//            try {
+//                labels[0][ACTIONS.get(t)] = advantage;
+//                pn.backpropagation(state, labels);
+//            } catch (Exception e) {
+//                print((float[][]) pn.feedforward(state));
+//            }
+//            reward *= DISCOUNT;
+//            vn.backpropagation(state, new float[][]{{REWARDS.get(t + 1) + DISCOUNT * v}});
+//        }
+//        if (GAME.getGamesCount() % GAMESBEFORESAVE == 0) {
+//            pn.saveInsideJar();
+//            vn.saveInsideJar();
+//        }
+//    }
 
     private void reset() {
         STATES.clear();

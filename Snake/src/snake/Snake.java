@@ -1,5 +1,6 @@
 package snake;
 
+import static ai.NNlib.copy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import javafx.animation.KeyFrame;
@@ -35,6 +36,8 @@ public class Snake extends Stage {
     public final int WIDTH;
     public final int HEIGHT;
     private final boolean whileloop;
+    private int framesOnCurrentApple = 0;
+    private final int framesMaxWithoutApple;
 
     public Snake(int rows, int cols, int unitsize, boolean whileloop) {
         this.whileloop = whileloop;
@@ -42,6 +45,7 @@ public class Snake extends Stage {
         HEIGHT = rows;
         int height = unitsize * rows;
         int width = unitsize * cols;
+        framesMaxWithoutApple = cols * rows * 2;
         grid = new Grid(rows, cols, height, width);
         Scene scene = new Scene(grid, width, height);
         this.setScene(scene);
@@ -82,6 +86,7 @@ public class Snake extends Stage {
             completedgames++;
             newGame();
         }
+        framesOnCurrentApple++;
     }
 
     private void newGame() {
@@ -90,6 +95,7 @@ public class Snake extends Stage {
         grid.newApple();
         snakedirection = vectorOpposite(STARTDIRECTION);
         event = 0;
+        framesOnCurrentApple = 0;
     }
 
     private static int[] vectorOpposite(int[] vector) {
@@ -151,9 +157,13 @@ public class Snake extends Stage {
             keys.put(right, true);
         }
     }
+    
+    public void setGamesPlayed(int games){
+        completedgames = games;
+    }
 
     public float[][] getGameState() {
-        return grid.grid;
+        return copy(grid.grid);
     }
 
     public boolean isGameOver() {
@@ -172,7 +182,7 @@ public class Snake extends Stage {
         return ((event >> 2) & 1) == 1;
     }
 
-    public int getGamesCount() {
+    public int getGamesPlayed() {
         return completedgames;
     }
 
@@ -274,9 +284,10 @@ public class Snake extends Stage {
             snakehead[1] += componenty;
             int newx = snakehead[0];
             int newy = snakehead[1];
-            if (newx < 0 || newx >= cols || newy < 0 || newy >= rows) {
-                return 1;
+            if (newx < 0 || newx >= cols || newy < 0 || newy >= rows) {//hit side of grid
+                return 1;//lose (001)
             }
+            //update visuals and grid
             setNodeLoc(snakesprites.getChildren().get(snakehead[2]), newx, newy);
             int tailindex = snakelength - 1;
             for (int i = 1; i < tailindex; i++) {
@@ -302,11 +313,16 @@ public class Snake extends Stage {
             segment[1] = prevy;
             prevx = segmentx;
             prevy = segmenty;
-            if (grid[newy][newx] == BODY) {
-                return 1;
+            //end update visuals and grid
+            if (framesOnCurrentApple > framesMaxWithoutApple) {//took too much time
+                return 1;//lose (001)
+            }
+            if (grid[newy][newx] == BODY) {//hit self
+                return 1;//lose (001)
             }
             if (grid[newy][newx] == APPLE) {
-                event = event | (1 << 1);
+                event = event | (1 << 1);//apple eaten (010)
+                framesOnCurrentApple = 0;//Reset frame count between apples
                 for (int i = 0; i < SNAKEGROWTH; i++) {
                     int[] lastpart = snake.get(snakelength - 1);
                     newSnakePart(BODY, lastpart[0], lastpart[1]);
@@ -315,7 +331,8 @@ public class Snake extends Stage {
                 if (!isGridFilled()) {
                     newApple();
                 } else {
-                    event = event | (1 << 2);
+                    event = event | (1 << 2);//win (100)
+                    snakelength--;//extra length is added due to showing one frame after the game is finished
                 }
             }
             grid[newy][newx] = HEAD;
@@ -342,7 +359,7 @@ public class Snake extends Stage {
             node.setTranslateY(y * unitheight);
         }
 
-        private boolean isGridFilled() {//Must be called after apple is removed
+        private boolean isGridFilled() {//Should be called after apple is removed before the next apple is created
             for (int i = 0; i < rows; i++) {
                 for (int j = 0; j < cols; j++) {
                     if (grid[i][j] == 0) {
